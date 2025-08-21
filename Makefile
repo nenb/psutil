@@ -183,7 +183,7 @@ test-cibuildwheel:    ## Run tests from cibuildwheel.
 	cd .tests/ && $(PYTHON_ENV_VARS) PYTEST_ADDOPTS="-k test_memleaks.py" $(PYTHON) -m pytest --pyargs psutil.tests
 
 lint-ci:  ## Run all linters on GitHub CI.
-	python3 -m pip install -U black ruff rstcheck toml-sort sphinx
+	python3 -m pip install -U black mypy ruff rstcheck toml-sort sphinx
 	curl -fsSL https://dprint.dev/install.sh | sh
 	${MAKE} lint-all
 
@@ -193,9 +193,14 @@ lint-ci:  ## Run all linters on GitHub CI.
 
 ruff:  ## Run ruff linter.
 	@git ls-files '*.py' | xargs $(PYTHON) -m ruff check --output-format=concise
+	@# .pyi stubs can use Python 3.8+ syntax even when targeting older versions
+	@git ls-files '*.pyi' | xargs $(PYTHON) -m ruff check --output-format=concise --target-version=py38
 
 black:  ## Run black formatter.
-	@git ls-files '*.py' | xargs $(PYTHON) -m black --check --safe
+	@git ls-files '*.py' '*.pyi' | xargs $(PYTHON) -m black --check --safe
+
+mypy:  ## Run mypy type checker.
+	$(PYTHON) -m mypy psutil --exclude psutil/tests
 
 dprint:
 	@$(DPRINT) check --list-different
@@ -212,6 +217,7 @@ lint-toml:  ## Run linter for pyproject.toml.
 lint-all:  ## Run all linters
 	${MAKE} black
 	${MAKE} ruff
+	${MAKE} mypy
 	${MAKE} dprint
 	${MAKE} lint-c
 	${MAKE} lint-rst
@@ -220,20 +226,20 @@ lint-all:  ## Run all linters
 # --- not mandatory linters (just run from time to time)
 
 pylint:  ## Python pylint
-	@git ls-files '*.py' | xargs $(PYTHON) -m pylint --rcfile=pyproject.toml --jobs=0 $(ARGS)
+	@git ls-files '*.py' '*.pyi' | xargs $(PYTHON) -m pylint --rcfile=pyproject.toml --jobs=0 $(ARGS)
 
 vulture:  ## Find unused code
-	@git ls-files '*.py' | xargs $(PYTHON) -m vulture $(ARGS)
+	@git ls-files '*.py' '*.pyi' | xargs $(PYTHON) -m vulture $(ARGS)
 
 # ===================================================================
 # Fixers
 # ===================================================================
 
 fix-black:
-	@git ls-files '*.py' | xargs $(PYTHON) -m black
+	@git ls-files '*.py' '*.pyi' | xargs $(PYTHON) -m black
 
 fix-ruff:
-	@git ls-files '*.py' | xargs $(PYTHON) -m ruff check --fix --output-format=concise $(ARGS)
+	@git ls-files '*.py' '*.pyi' | xargs $(PYTHON) -m ruff check --fix --output-format=concise $(ARGS)
 
 fix-toml:  ## Fix pyproject.toml
 	@git ls-files '*.toml' | xargs toml-sort
