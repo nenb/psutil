@@ -96,6 +96,7 @@ DEV_DEPS = TEST_DEPS + [
     "black",
     "check-manifest",
     "coverage",
+    "mypy",
     "packaging",
     "pylint",
     "pyperf",
